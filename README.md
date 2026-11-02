@@ -44,7 +44,7 @@ Comments are begun using two slashes and will end at the end of the line.
 _C-+_ differentiates between 2 kinds of variables: _inline variables_ and _expansion variables_:
 
 - **Inline Variables**:
-  These are specified inside the _C-+_ source code and inlined during compiletime. Once assigned, an inline variable is immutable.
+  These are specified inside the _C-+_ source code and inlined during compiletime. Once assigned, an inline variable is immutable. An inline variable cannot be set to anything involving an _expansion variable_ or the value of `getArg()` and `getEnv(name)` since they will not be known at compile time.
   ```
   inline someSetting = 12; // Whenever someSetting is referenced, the compiler will insert 12
   ```
@@ -60,6 +60,8 @@ _C-+_ differentiates between 2 kinds of variables: _inline variables_ and _expan
   An expansion variable can be reassigned to reference a new expression later on overwriting overwrite the old one.
   If the variable itself is part of the newly assigned expression, its current expression will be embedded as part of the new expression. When accessing, the "inner" expression is evaluated before the newly assigned "outer" one.
 
+Variables may be named using uppercase and lowercase letters, underscores and arabic numerals as long as the name does not start with a digit.
+
 ### Arithmetic:
 
 _C-+_ supports some basic arithmetic operators out-of-the-box. These being:
@@ -68,6 +70,7 @@ _C-+_ supports some basic arithmetic operators out-of-the-box. These being:
 - `minuend - subtrahend` Substraction
 - `factor * factor` Multiplication
 - `dividend / divisor` Division
+- `dividend % modulus` Modulo _(this operation is not native to the fx-810DE CW, so the compilert implements it manually)_
 - `frac(numerator, denominator)` Fractions
 - `pow(base)` and `pow(base, exponent)` Exponentiation - If no exponent is specified, squaring is assumed
 - `root(radicant)` and `root(radicant, index)` Radical - If no index is specified, a square root is assumed
@@ -80,7 +83,7 @@ Additionally, you can specify any mathematical expression supported by your calc
 The example below uses the calculator's native `Int()` function and inserts the variable `myVar` as argument. The result is incremented by 5 and stored in `out`
 ```
 myVar = ...;
-out = 5 + `Int($pi$)`;
+out = 5 + `Int($myVar$)`;
 ```
 
 Note, that with native arithmetic, the _C-+_ compiler cannot make any guarantees about the nature and syntax of the expression and blindly trusts it, forwarding it to the compilation result.
@@ -94,6 +97,7 @@ Transformations can be applied to any expression that logically represents a gro
 - Variables
 - Arithmetic expressions inside parentheses
 - Native arithmetic blocks
+- `getArg()` or `getEnv(name)`
 
 #### Slicing
 
@@ -110,10 +114,13 @@ A `start` or `end` value of $`n \lt 0`$ specifies the n'th decimal place, counti
 
 If a slicing process includes the decimal point in the sliced region, it will be **TODO: Make up my mind**.
 
+In case of only one value being supplied, the other one will be implicitely set to the available extreme, i.e. `[-1:]` references everything from the first decimal digit to the end of the number, whereas `[:0]` will reference everything from the beginning until the ones place. `[:]` has to effect.
+
 Examples:
 ```
-num1 = 12345[0:2];   // Will be 345
-num2 = 3.141[-1:-3]; // Will be 141
+num1 = 12345[2:0];    // Will be 345
+num2 = 3.1419[-2:-3]; // Will be 41
+num3 = 5.1419[-2:];   // Will be 419
 ```
 
 #### Combining
@@ -126,13 +133,27 @@ num = 12 ++ 83;     // Will be 1283
 num = 42 ++ 0 ++ 8; // Will be 4208
 ```
 
+#### Decimal Insertion
+
+You can move / insert the decimal point to any position $`n`$ (from left to right) inside a number using the `[n.]` syntax.
+
+If $`n = 0`$, the entire number is treated as decimal digits for the integer 0. $`n \lt 0`$ or $`n \gt maxDigits`$ will space out the number respectively:
+```
+num = 12345[2.]  // Will be 12.345
+num = 12345[0.]  // Will be 0.12345
+num = 12345[7.]  // Will be 1234500.0
+num = 12345[-2.] // Will be 0.0012345
+num = 123.4[1.]  // Will be 1.234
+```
+
 #### Analyzing
 
 You can analyze the length of a number's Base10 representaion, yielding a resulting integer.
 
-To do so, append a `[#]` _(or `[#.]` to count the decimal digits)_:
+To do so, append a `[#]`. By putting a period in front of / behind the pound sign, you can count the integer/decimal places respectively:
 ```
-integers = 12.341[#];  // Will be 2
+integers = 12.341[#];  // Will be 5
+decimals = 12.341[.#]; // Will be 2
 decimals = 12.341[#.]; // Will be 3
 ```
 
@@ -145,8 +166,60 @@ The **EXPR** can be anything that logically represents a number:
 - Variables
 - Arithmetic expressions
 - Native arithmetic blocks
+- `getArg()` or `getEnv(name)`
 
 ```
 yield 12 * 7;
 yield myVar - 1;
+```
+
+If the `yield` is followed by and other statement, the code will not compile.
+
+
+### Retrieving the Argument
+
+The resulting math statement is going to be called with a parameter $`x`$. You can obtain it using the `getArg()` method.
+
+The parameter is a simple number and behaves just like a normal number does:
+
+```
+argument = getArg();
+argumentLen = getArg()[#];
+...
+```
+
+
+### Retrieving Environment Variables
+
+You can also retrieve your calculator's environment variables which can be edited in the calculator's "Variable" menu _(or the repective menu name for the calculator you are using)_.
+
+The environment variable is identified by a name _(usually a single-letter identifier like 'z')_ and can be accessed at runtime using the `getEnv(name)` method.
+
+The name parameter is expected to be the name of the environment variable on your calculator and will not undergo any expansion or modification at compile- or runtime.
+
+The returned value is a simple number and behaves just like a normal number does:
+
+```
+envVar1 = getEnv(z);
+envVar2 = getEnv(A);
+...
+```
+
+
+
+
+
+
+
+# Temporary
+Idea how things could work:
+
+```
+inline max = 8;
+len = getArg()[#];
+
+nextLen = (len % max) + 1;
+res = 1[nextLen.];
+
+yield res;
 ```
