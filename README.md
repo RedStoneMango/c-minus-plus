@@ -41,26 +41,19 @@ Comments are begun using two slashes and will end at the end of the line.
 
 ### Variables:
 
-_C-+_ differentiates between 2 kinds of variables: _inline variables_ and _expansion variables_:
+#### Naming
 
-- **Inline Variables**:
-  These are specified inside the _C-+_ source code and inlined during compiletime. Once assigned, an inline variable is immutable. An inline variable cannot be set to anything involving an _expansion variable_ or the value of `getArg()` and `getEnv(name)` since they will not be known at compile time.
-  ```
-  inline someSetting = 12; // Whenever someSetting is referenced, the compiler will insert 12
-  ```
-- **Expansion Variables**:
+Variables may be named using uppercase and lowercase letters, underscores and arabic numerals as long as the name does not start with a numeral.
 
-  #### Assignment
-  On assignment, these are set to an expression to be evaluated on variable access at runtime. This means, the expression will **not** be run when assigned but expanded on-demand
-  ```
-  sum = 5 + 2; // When sum is referenced, the expression 5+2 will be evaluated and used as the variable value
-  ```
+#### Assignment
+On assignment, variables are set to an expression to be evaluated on runtime access. This means, the expression will **not** be run when assigned but expanded on-demand.
+```
+sum = 5 + 2; // When sum is referenced, the expression 5+2 will be evaluated and used as the variable value
+```
 
-  #### Mutating
-  An expansion variable can be reassigned to reference a new expression later on overwriting overwrite the old one.
-  If the variable itself is part of the newly assigned expression, its current expression will be embedded as part of the new expression. When accessing, the "inner" expression is evaluated before the newly assigned "outer" one.
-
-Variables may be named using uppercase and lowercase letters, underscores and arabic numerals as long as the name does not start with a digit.
+#### Mutating
+An variable can be reassigned to reference a new expression later on, overwriting the old expression for subsequent accesses of the variables.
+If the variable itself is part of the newly assigned expression, its current expression will be embedded as part of the new expression. When accessing, the "inner" expression is evaluated before the newly assigned "outer" one.
 
 ### Arithmetic:
 
@@ -94,6 +87,7 @@ _C-+_ allows you to not only calculate with numbers but also transform them usin
 
 Transformations can be applied to any expression that logically represents a groupable number:
 - Numbers
+- Conditional Numbers
 - Variables
 - Arithmetic expressions inside parentheses
 - Native arithmetic blocks
@@ -116,6 +110,8 @@ If a slicing process includes the decimal point in the sliced region, it will be
 
 In case of only one value being supplied, the other one will be implicitely set to the available extreme, i.e. `[-1:]` references everything from the first decimal digit to the end of the number, whereas `[:0]` will reference everything from the beginning until the ones place. `[:]` has to effect.
 
+Slicing is evaluated left-to-right.
+
 Examples:
 ```
 num1 = 12345[2:0];    // Will be 345
@@ -133,6 +129,8 @@ num = 12 ++ 83;     // Will be 1283
 num = 42 ++ 0 ++ 8; // Will be 4208
 ```
 
+Combining is evaluated left-to-right, taking precedence over arithmetic expressions unless grouped by parentheses.
+
 #### Decimal Insertion
 
 You can move / insert the decimal point to any position $`n`$ (from left to right) inside a number using the `[n.]` syntax.
@@ -146,6 +144,8 @@ num = 12345[-2.] // Will be 0.0012345
 num = 123.4[1.]  // Will be 1.234
 ```
 
+Decimal insertion is evaluated left-to-right.
+
 #### Analyzing
 
 You can analyze the length of a number's Base10 representaion, yielding a resulting integer.
@@ -157,23 +157,52 @@ decimals = 12.341[.#]; // Will be 2
 decimals = 12.341[#.]; // Will be 3
 ```
 
-### Yielding a Result
+Analyzing is evaluated left-to-right.
 
-To yield a computation result, use a `yield EXPR` statement at the bottom of the code. The statement is needed in order for your code to compile.
+### Conditional Numbers
+
+A number's value can be dynamically assigned based on a condition, evaluated once the conditional number is accessed. The conditional number itself can be treated like any regular number, being subject to number transformations or arithmetic. Note, that a conditional number cannot be embedded into a _Native Arithmetic_ block unless stored inside a variable beforehand.
+
+To specify a conditional number, use the `{COND1: NUM1, COND2: NUM2}` syntax, specifying a condition followed by a colon and the value to be used in case the condition is fulfilled. The first branch to be fulfilled will be used.
+
+Exmaple:
+```
+num = {
+    getEnv(z) == 1: 42,    // If getEnv(z) is 1, use 42
+    getEnv(z) > 140: 36,   // If it is > 140, use 36
+    getEnv(z) != 3: 103,   // If it is not 3 (and <= 140 since that's been ruled out by the earlier condition), use 103
+    *: 18                  // If no condition is true, use 18
+} + 12;                    // Whatever the value is, add 12
+```
+
+#### Conditional Operators
+
+The following conditions are supported:
+
+- `a == b` Is equal
+- `a != b` Is not equal
+- `a < b` Less than
+- `a > b` Greater than
+- `*` Default value in case no other condition is fulfilled. If no default is provided, it will be $`0`$.
+
+### Producing a Result
+
+To produce a computation result, use a `return EXPR` statement at the bottom of the code. The statement is needed in order for your code to compile.
 
 The **EXPR** can be anything that logically represents a number:
 - Numbers
+- Conditional Numbers
 - Variables
 - Arithmetic expressions
 - Native arithmetic blocks
 - `getArg()` or `getEnv(name)`
 
 ```
-yield 12 * 7;
-yield myVar - 1;
+return 12 * 7;
+return myVar - 1;
 ```
 
-If the `yield` is followed by and other statement, the code will not compile.
+If the `return` is followed by and other statement, the code will not compile.
 
 
 ### Retrieving the Argument
@@ -215,11 +244,26 @@ envVar2 = getEnv(A);
 Idea how things could work:
 
 ```
-inline max = 8;
+max = 8;
 len = getArg()[#];
 
 nextLen = (len % max) + 1;
 res = 1[nextLen.];
 
-yield res;
+return res;
+```
+
+```
+frame = getArg()[:0] % 4;
+
+res = {
+    frame == 0: 0.1,
+    frame == 1: 0.01,
+    frame == 2: 0.001,
+    frame == 3: 0.01
+};
+
+combined = (frame + 1) ++ res;
+
+return combined[1.]; // "1" could also be "(frame + 1)[#]" but since we are "mod 4", it will always be "1"
 ```
