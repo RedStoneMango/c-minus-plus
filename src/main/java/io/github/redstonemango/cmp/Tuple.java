@@ -1,4 +1,4 @@
 package io.github.redstonemango.cmp;
 
-public class Tuple {
+public record Tuple<T, U> (T a, U b) {
 }

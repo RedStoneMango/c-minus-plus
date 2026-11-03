@@ -1,4 +1,7 @@
-package io.github.redstonemango.cmp;
+package io.github.redstonemango.cmp.cli;
 
-public class invalidCliFormatException {
+public class InvalidCliFormatException extends Exception {
+    public InvalidCliFormatException(String message) {
+        super(message);
+    }
 }
