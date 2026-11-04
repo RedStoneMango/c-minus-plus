@@ -2,7 +2,6 @@ package io.github.redstonemango.cmp;
 
 import io.github.redstonemango.cmp.cli.CliInput;
 import io.github.redstonemango.cmp.cli.InvalidCliFormatException;
-import io.github.redstonemango.cmp.lexer.LexerCharSource;
 
 import java.io.IOException;
 
